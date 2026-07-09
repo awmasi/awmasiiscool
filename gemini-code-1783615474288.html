@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ViewTube - Custom Video Engine</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #0f0f0f;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* Top Navigation Bar */
+        header {
+            background-color: #212121;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: fixed;
+            top: 0;
+            width: 100%;
+            height: 65px;
+            z-index: 100;
+            border-bottom: 1px solid #383838;
+        }
+
+        .logo {
+            font-size: 22px;
+            font-weight: bold;
+            color: #ff0000;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+        }
+
+        .logo span {
+            color: #fff;
+        }
+
+        .upload-btn-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+
+        .upload-btn {
+            background-color: #cc0000;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .upload-btn:hover {
+            background-color: #990000;
+        }
+
+        .upload-btn-wrapper input[type=file] {
+            font-size: 100px;
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        /* Custom Popup Modal for Selection */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-box {
+            background: #212121;
+            padding: 30px;
+            border-radius: 12px;
+            border: 1px solid #383838;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+
+        .modal-box h3 {
+            font-size: 18px;
+            margin-bottom: 20px;
+            color: #fff;
+        }
+
+        .modal-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .choice-btn {
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: bold;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .choice-btn.video {
+            background-color: #3f3f3f;
+            color: #fff;
+        }
+
+        .choice-btn.video:hover {
+            background-color: #555;
+        }
+
+        .choice-btn.short {
+            background-color: #cc0000;
+            color: #fff;
+        }
+
+        .choice-btn.short:hover {
+            background-color: #a30000;
+        }
+
+        /* Main Screen Layout */
+        .main-container {
+            display: flex;
+            margin-top: 65px;
+            height: calc(100vh - 65px);
+            width: 100%;
+        }
+
+        /* Left Side: Video Player Engine */
+        .player-section {
+            flex: 2;
+            padding: 20px;
+            overflow-y: auto;
+            background-color: #0b0b0b;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .video-window {
+            width: 100%;
+            max-width: 1000px;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            aspect-ratio: 16 / 9;
+            transition: aspect-ratio 0.3s ease;
+        }
+
+        .video-window.short-mode {
+            aspect-ratio: 9 / 16;
+            max-height: 70vh;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .video-details {
+            width: 100%;
+            max-width: 1000px;
+            margin-top: 15px;
+        }
+
+        .video-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .video-controls-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #383838;
+            padding-bottom: 15px;
+        }
+
+        .creator-info {
+            font-weight: bold;
+            color: #aaa;
+        }
+
+        .like-btn {
+            background: #272727;
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-weight: 500;
+        }
+
+        .like-btn:hover {
+            background: #3f3f3f;
+        }
+
+        .like-btn.active {
+            background: #fff;
+            color: #000;
+        }
+
+        /* Right Side Panels */
+        .sidebar-feed {
+            flex: 1;
+            max-width: 420px;
+            min-width: 320px;
+            border-left: 1px solid #272727;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .sidebar-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #fff;
+            border-left: 3px solid #cc0000;
+            padding-left: 8px;
+            margin-bottom: 10px;
+        }
+
+        .video-item {
+            display: flex;
+            gap: 10px;
+            cursor: pointer;
+            padding: 6px;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+
+        .video-item:hover {
+            background: #212121;
+        }
+
+        .thumbnail-preview {
+            width: 120px;
+            height: 68px;
+            background: #272727;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .thumbnail-preview video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .item-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .item-title {
+            font-size: 14px;
+            font-weight: 500;
+            line-height: 1.2;
+            color: #fff;
+        }
+
+        /* Vertical Shorts Grid Shelf */
+        .shorts-shelf {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .short-item {
+            background: #1c1c1c;
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.2s, background 0.2s;
+            padding-bottom: 8px;
+        }
+
+        .short-item:hover {
+            transform: translateY(-2px);
+            background: #262626;
+        }
+
+        .short-thumbnail {
+            width: 100%;
+            aspect-ratio: 9 / 16;
+            background: #000;
+            overflow: hidden;
+        }
+
+        .short-thumbnail video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .short-title {
+            font-size: 13px;
+            font-weight: 500;
+            padding: 8px 6px 2px 6px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .delete-btn {
+            background: transparent;
+            border: none;
+            color: #ff4d4d;
+            cursor: pointer;
+            font-size: 11px;
+            padding: 0 6px;
+            margin-top: 2px;
+            text-align: left;
+        }
+
+        .status-empty {
+            text-align: center;
+            color: #666;
+            font-size: 13px;
+            padding: 10px 0;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">▶ <span>ViewTube Engine</span></div>
+        <div class="upload-btn-wrapper">
+            <button class="upload-btn" id="mainUploadBtn">＋ Upload Content</button>
+            <input type="file" id="videoUpload" accept="video/*" />
+        </div>
+    </header>
+
+    <div class="modal-overlay" id="uploadModal">
+        <div class="modal-box">
+            <h3>Would you like it to be a Short or a Video?</h3>
+            <div class="modal-buttons">
+                <button class="choice-btn video" onclick="submitUpload(false)">🎬 Video</button>
+                <button class="choice-btn short" onclick="submitUpload(true)">⚡ Short</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="player-section">
+            <div class="video-window" id="playerWindow">
+                <video id="mainPlayer" controls autoplay loop></video>
+            </div>
+            <div class="video-details">
+                <div class="video-title" id="currentPlayerTitle">No Video Loaded</div>
+                <div class="video-controls-bar">
+                    <div class="creator-info" id="currentPlayerCreator">Upload files or select an option from the sidebar grid.</div>
+                    <button class="like-btn" id="likeBtn" onclick="toggleLike()">
+                        <span>👍</span> <span id="likeCount">0</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar-feed">
+            <div>
+                <div class="sidebar-title">Up Next (Videos)</div>
+                <div id="videoFeedItems">
+                    <div class="status-empty">No standard videos.</div>
+                </div>
+            </div>
+
+            <div>
+                <div class="sidebar-title">⚡ ViewTube Shorts</div>
+                <div class="shorts-shelf" id="shortsFeedItems">
+                    <div class="status-empty" style="grid-column: span 2">No shorts loaded yet.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let contentsList = [];
+        let currentIndex = null;
+        let pendingFile = null;
+
+        // Automatically runs when any device connects to this file
+        window.addEventListener('load', function() {
+            loadSharedData();
+        });
+
+        function loadSharedData() {
+            const savedData = localStorage.getItem("ViewTubeSharedLedger");
+            if (savedData) {
+                contentsList = JSON.parse(savedData);
+            }
+            renderFeeds();
+            
+            if (contentsList.length > 0 && currentIndex === null) {
+                selectContent(0);
+            }
+        }
+
+        function renderFeeds() {
+            const videoContainer = document.getElementById('videoFeedItems');
+            const shortsContainer = document.getElementById('shortsFeedItems');
+            
+            videoContainer.innerHTML = '';
+            shortsContainer.innerHTML = '';
+
+            const videos = contentsList.filter(c => !c.isShort);
+            const shorts = contentsList.filter(c => c.isShort);
+
+            if (videos.length === 0) {
+                videoContainer.innerHTML = '<div class="status-empty">No standard videos.</div>';
+            } else {
+                contentsList.forEach((item, index) => {
+                    if (item.isShort) return;
+                    const div = document.createElement('div');
+                    div.className = 'video-item';
+                    div.onclick = () => selectContent(index);
+                    div.innerHTML = `
+                        <div class="thumbnail-preview"><video src="${item.src}#t=1" muted></video></div>
+                        <div class="item-info">
+                            <div class="item-title">${item.title}</div>
+                            <button class="delete-btn" onclick="deleteContent(${item.id}, event)">Remove</button>
+                        </div>
+                    `;
+                    videoContainer.appendChild(div);
+                });
+            }
+
+            if (shorts.length === 0) {
+                shortsContainer.innerHTML = '<div class="status-empty" style="grid-column: span 2">No shorts loaded yet.</div>';
+            } else {
+                contentsList.forEach((item, index) => {
+                    if (!item.isShort) return;
+                    const div = document.createElement('div');
+                    div.className = 'short-item';
+                    div.onclick = () => selectContent(index);
+                    div.innerHTML = `
+                        <div class="short-thumbnail"><video src="${item.src}#t=1" muted></video></div>
+                        <div class="short-title">${item.title}</div>
+                        <button class="delete-btn" onclick="deleteContent(${item.id}, event)">Remove</button>
+                    `;
+                    shortsContainer.appendChild(div);
+                });
+            }
+        }
+
+        function selectContent(index) {
+            currentIndex = index;
+            const data = contentsList[index];
+            const player = document.getElementById('mainPlayer');
+            const windowFrame = document.getElementById('playerWindow');
+            
+            if (data.isShort) {
+                windowFrame.classList.add('short-mode');
+            } else {
+                windowFrame.classList.remove('short-mode');
+            }
+
+            player.src = data.src;
+            player.play().catch(() => {});
+
+            document.getElementById('currentPlayerTitle').innerText = data.title;
+            document.getElementById('currentPlayerCreator').innerText = data.isShort ? "⚡ ViewTube Short Feed" : "Standard Video Display";
+            document.getElementById('likeCount').innerText = data.likes || 0;
+            document.getElementById('likeBtn').classList.remove('active');
+        }
+
+        document.getElementById('videoUpload').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            pendingFile = file; 
+            document.getElementById('uploadModal').classList.add('active');
+        });
+
+        function submitUpload(isShortChoice) {
+            if (!pendingFile) return;
+            document.getElementById('uploadModal').classList.remove('active');
+
+            const uploadBtn = document.getElementById('mainUploadBtn');
+            uploadBtn.innerText = "Processing... ⏳";
+
+            // Converts your video stream into a direct link that other local browsers can play
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const videoUrlString = e.target.result;
+
+                const record = {
+                    id: Date.now(),
+                    title: pendingFile.name.replace(/\.[^/.]+$/, ""),
+                    src: videoUrlString, 
+                    isShort: isShortChoice,
+                    likes: 0
+                };
+
+                contentsList.push(record);
+                localStorage.setItem("ViewTubeSharedLedger", JSON.stringify(contentsList));
+                
+                uploadBtn.innerText = "＋ Upload Content";
+                pendingFile = null;
+                document.getElementById('videoUpload').value = ''; 
+                
+                renderFeeds();
+                selectContent(contentsList.length - 1);
+            };
+            reader.readAsDataURL(pendingFile);
+        }
+
+        function toggleLike() {
+            if (currentIndex === null || contentsList.length === 0) return;
+            const data = contentsList[currentIndex];
+            const btn = document.getElementById('likeBtn');
+            
+            if (btn.classList.contains('active')) {
+                data.likes--;
+                btn.classList.remove('active');
+            } else {
+                data.likes++;
+                btn.classList.add('active');
+            }
+
+            localStorage.setItem("ViewTubeSharedLedger", JSON.stringify(contentsList));
+            document.getElementById('likeCount').innerText = data.likes;
+        }
+
+        function deleteContent(id, event) {
+            event.stopPropagation();
+            if (!confirm("Delete video?")) return;
+            
+            contentsList = contentsList.filter(c => c.id !== id);
+            localStorage.setItem("ViewTubeSharedLedger", JSON.stringify(contentsList));
+            
+            if (currentIndex !== null && contentsList[currentIndex]?.id === id) {
+                document.getElementById('mainPlayer').src = '';
+                currentIndex = null;
+            }
+            renderFeeds();
+        }
+    </script>
+</body>
+</html>
